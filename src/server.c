@@ -6,7 +6,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include "../include/common.h"
-#include <termios.h>
+#include "../include/customer_ops.h"
 
 int is_logged_in(int customerId);
 void add_session(int customerId);
@@ -60,16 +60,41 @@ void handle_client(int sock) {
            		 buffer[n] = '\0';
 
            		 if (strcmp(buffer, "BALANCE") == 0) {
-                		snprintf(buffer, sizeof(buffer), "Your balance: %.2f\n", c.balance);
-                		send(sock, buffer, strlen(buffer), 0);
-            		}
-            		else if (strcmp(buffer, "EXIT") == 0) {
-                		send(sock, "Goodbye!\n", 9, 0);
-                		break;
-            		}
-            		else {
-                		send(sock, "Invalid choice\n", 15, 0);
-            		}
+				 handle_view_balance(sock, &c);
+			}
+			 else if (strncmp(buffer, "DEPOSIT",7) == 0) {
+ 				 handle_deposit(sock, &c,buffer);
+			 }
+			 else if (strncmp(buffer, "WITHDRAW",8) == 0) {
+				 handle_withdraw(sock, &c,buffer);
+			 }
+			 else if (strncmp(buffer, "TRANSFER",8) == 0) {
+ 				 handle_transfer(sock, &c,buffer);
+			 }
+			 else if (strcmp(buffer, "LOAN") == 0) {
+ 				 handle_apply_loan(sock, &c);
+			 }
+			 else if (strcmp(buffer, "CHANGE_PASS") == 0) {
+				 handle_change_password(sock, &c);
+			 }
+			 else if (strcmp(buffer, "FEEDBACK") == 0) {
+				 handle_feedback(sock, &c);
+			 }
+			 else if (strcmp(buffer, "TRANSACTIONS") == 0) {
+				 handle_view_transactions(sock, &c);
+			 }
+			else if (strcmp(buffer, "LOGOUT") == 0) {
+			    	send(sock, "Logging out...\n", 15, 0);
+    				break;
+			}
+			 else if (strcmp(buffer, "EXIT") == 0) {
+				 send(sock, "Goodbye!\n", 9, 0);
+				 break;
+			 }
+			else {
+			    	send(sock, "Invalid choice\n", 15, 0);
+			}
+
         	}
 		remove_session(c.id);
 	}

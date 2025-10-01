@@ -122,29 +122,9 @@ int main() {
 		     	 }
 		     	 break;
 		       }
-                case 4:{
-		       char input[64];
-		       int target_id;
-		       double amt = 0.0;
-		       
-		       printf("Enter target customer ID and amount: ");
-		       if (!fgets(input, sizeof(input), stdin) || 
-			       	       sscanf(input, "%d %lf", &target_id, &amt) != 2) {
-		       	       printf("Invalid input. Usage: <id> <amount>\n");
-		       	       break;
-		       }
-		       
-		       char outbuf[BUFFER_SIZE];
-		       snprintf(outbuf, sizeof(outbuf), "TRANSFER %d %.2f", target_id, amt);
-		       send(sock, outbuf, strlen(outbuf), 0);
-		       
-		       int n = recv(sock, outbuf, sizeof(outbuf) - 1, 0);
-		       if (n > 0) {
-		       	       outbuf[n] = '\0';
-		       	       printf("Server: %s\n", outbuf);
-		       }
-		       break;
-		       }
+                case 4:
+                        send(sock, "TRANSFER", 8, 0);
+                        break;
 		case 5:
                          send(sock, "LOAN", 7, 0);
                          break; 

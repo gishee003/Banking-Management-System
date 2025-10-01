@@ -51,7 +51,84 @@ int main() {
     send(sock, password, strlen(password), 0);
 
     int n;
-    while ((n = recv(sock, buffer, BUFFER_SIZE-1, 0)) > 0) {
+        while (1) {
+        printf("\n----------- Customer Menu -----------\n");
+        printf("1. View Account Balance\n");
+	printf("2. Deposit Money\n");
+	printf("3. Withdraw Money\n");
+	printf("4. Transfer Funds\n");
+        printf("5. Apply for a Loan\n");
+	printf("6. Change Password\n");
+        printf("7. Add Feedback\n");
+        printf("8. View Transaction History\n");
+        printf("9. Logout\n");
+        printf("10. Exit\n");
+        printf("Choice: ");
+
+        char choice[10];
+        fgets(choice, sizeof(choice), stdin);
+        choice[strcspn(choice, "\n")] = '\0';
+
+        /*if (strcmp(choice, "1") == 0) {
+            send(sock, "BALANCE", 7, 0);
+        } else if (strcmp(choice, "2") == 0) {
+            send(sock, "EXIT", 4, 0);
+            break;
+        } else {
+            printf("Invalid choice, try again.\n");
+            continue;
+        }*/
+
+	int num = atoi(choice); 
+
+	switch (num) {
+    		case 1:
+       			 send(sock, "BALANCE", 7, 0);
+			 break;
+	       	case 2:
+        		send(sock, "DEPOSIT", 7, 0);
+        		break;
+		case 3:
+                         send(sock, "WITHDRAW", 8, 0);
+                         break;
+                case 4:
+                        send(sock, "TRANSFER", 8, 0);
+                        break;
+		case 5:
+                         send(sock, "LOAN", 7, 0);
+                         break; 
+                case 6:
+                        send(sock, "CHANGE PASSWORD", 15, 0);
+                        break;
+		case 7:
+                         send(sock, "FEEDBACK", 8, 0);
+                         break; 
+                case 8:
+                        send(sock, "TRANSACTION HISTORY", 19, 0);
+                        break;
+
+		case 9:
+                         send(sock, "LOGOUT", 6, 0);
+                         break; 
+                case 10:
+                        send(sock, "EXIT", 4, 0);
+                        break;
+
+    		default:
+        		printf("Invalid choice, try again.\n");
+        		continue;
+	}
+
+
+        // Receive server reply
+        n = recv(sock, buffer, BUFFER_SIZE-1, 0);
+        buffer[n] = '\0';
+        printf("%s", buffer);
+
+        if (strstr(buffer, "Goodbye")) break;
+    }
+	
+   /* while ((n = recv(sock, buffer, BUFFER_SIZE-1, 0)) > 0) {
         buffer[n] = '\0';
         printf("%s", buffer);
 
@@ -59,7 +136,7 @@ int main() {
 
         fgets(buffer, BUFFER_SIZE, stdin);
         send(sock, buffer, strlen(buffer), 0);
-    }
+    }*/
 
     close(sock);
     return 0;

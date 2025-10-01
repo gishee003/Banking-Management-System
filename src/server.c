@@ -41,6 +41,7 @@ void handle_client(int sock) {
 
     char username[30];
     char password[30];
+    char buffer[BUFFER_SIZE];
 
     int n ;
     n = recv(sock, username, sizeof(username)-1, 0);
@@ -55,7 +56,21 @@ void handle_client(int sock) {
 	}
 	else{
 		add_session(c.id);
-		customer_menu(sock,c);
+		while ((n = recv(sock, buffer, BUFFER_SIZE-1, 0)) > 0) {
+           		 buffer[n] = '\0';
+
+           		 if (strcmp(buffer, "BALANCE") == 0) {
+                		snprintf(buffer, sizeof(buffer), "Your balance: %.2f\n", c.balance);
+                		send(sock, buffer, strlen(buffer), 0);
+            		}
+            		else if (strcmp(buffer, "EXIT") == 0) {
+                		send(sock, "Goodbye!\n", 9, 0);
+                		break;
+            		}
+            		else {
+                		send(sock, "Invalid choice\n", 15, 0);
+            		}
+        	}
 		remove_session(c.id);
 	}
     } 

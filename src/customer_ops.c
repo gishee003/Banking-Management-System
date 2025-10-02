@@ -3,9 +3,11 @@
 #include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <time.h>
 #include "../include/common.h"
 #include "../include/customer_ops.h"
 #include "../include/database.h"   
+
 
 void handle_view_balance(int sock, struct Customer *c) {
     char resp[BUFFER_SIZE];
@@ -153,7 +155,32 @@ void handle_change_password(int sock, struct Customer *c, const char *cmd){
 }
 
 void handle_feedback(int sock, struct Customer *c) {
-    send(sock, "Feedback option selected (not implemented yet)\n", 47, 0);
+    char buffer[BUFFER_SIZE];
+    int n;
+
+    // Ask for feedback
+    send(sock, "Enter your feedback: ", 21, 0);
+
+    // Receive the actual feedback
+    n = recv(sock, buffer, BUFFER_SIZE - 1, 0);
+    if (n <= 0) return;
+    buffer[n] = '\0';
+
+    FILE *fp = fopen(FEEDBACK_FILE, "a");
+    if (!fp) {
+        send(sock, "Error saving feedback.\n", 24, 0);
+        return;
+    }
+
+    time_t now = time(NULL);
+    char *timestamp = ctime(&now);
+    timestamp[strlen(timestamp) - 1] = '\0'; // remove newline
+
+    fprintf(fp, "CustomerID: %d | User: %s | Time: %s\nFeedback: %s\n\n",
+            c->id, c->username, timestamp, buffer);
+    fclose(fp);
+
+    send(sock, "Thank you for your feedback!\n", 30, 0);
 }
 
 void handle_view_transactions(int sock, struct Customer *c) {

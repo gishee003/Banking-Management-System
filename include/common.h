@@ -11,6 +11,7 @@
 #define ROLE_ADMIN    4
 
 #define CUSTOMER_DB "data/customers.dat"
+#define FEEDBACK_FILE "data/feedback.txt"
 
 struct Customer {
     int id;

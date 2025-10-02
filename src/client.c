@@ -10,6 +10,13 @@
 #include <termios.h>
 #include "../include/customer_menu.h"
 
+ssize_t recv_and_print(int sock, char *buf, size_t bufsz) {
+    ssize_t n = recv(sock, buf, bufsz - 1, 0);
+    if (n <= 0) return n;
+    buf[n] = '\0';
+    printf("%s", buf);
+    return n;
+}
 
 void get_hidden_input(char *buffer, size_t size) {
     struct termios oldt, newt;
@@ -205,6 +212,17 @@ int main() {
         n = recv(sock, buffer, BUFFER_SIZE-1, 0);
         buffer[n] = '\0';
         printf("%s", buffer);
+
+        if (strstr(buffer, "Enter your feedback") != NULL) {
+            char feedback[BUFFER_SIZE];
+            if (fgets(feedback, sizeof(feedback), stdin) == NULL) feedback[0] = '\0';
+            feedback[strcspn(feedback, "\n")] = '\0';
+            send(sock, feedback, strlen(feedback), 0);
+
+            // receive acknowledgement
+            n = recv_and_print(sock, buffer, sizeof(buffer));
+            if (n <= 0) break;
+        }
 
         if (strstr(buffer, "Goodbye")) break;
    	

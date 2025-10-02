@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -14,93 +15,84 @@ void remove_session(int customerId);
 int authenticate_customer(const char *username, const char *password, struct Customer *out);
 void logout_customer(int id);
 
+int server_running = 1;
+int server_fd;   // 🔹 made global so signal handler can access it
 
-void customer_menu(int sock, struct Customer c) {
-    char buffer[BUFFER_SIZE];
-    snprintf(buffer, sizeof(buffer),
-             "Welcome, %s! (Balance: %.2f)\n1. View Balance\n2. Logout\nChoice: ",
-             c.username, c.balance);
-    send(sock, buffer, strlen(buffer), 0);
-
-    int n = recv(sock, buffer, BUFFER_SIZE-1, 0);
-    buffer[n] = '\0';
-
-    if (buffer[0] == '1') {
-        snprintf(buffer, sizeof(buffer), "Your balance: %.2f\n", c.balance);
-        send(sock, buffer, strlen(buffer), 0);
-    }
-
-    logout_customer(c.id);
-    send(sock, "You have been logged out.\n", 26, 0);
-    exit(0);
+// 🔹 Signal handler to stop server
+void handle_sigterm(int sig) {
+    server_running = 0;
+    close(server_fd);   // this will unblock accept()
+    printf("\n[SERVER] Caught SIGTERM. Shutting down server...\n");
 }
 
 void handle_client(int sock) {
-  
     struct Customer c;
+    char username[30], password[30], buffer[BUFFER_SIZE];
+    int n;
 
-    char username[30];
-    char password[30];
-    char buffer[BUFFER_SIZE];
-
-    int n ;
+    // --- Receive login ---
     n = recv(sock, username, sizeof(username)-1, 0);
     username[n] = '\0';
 
     n = recv(sock, password, sizeof(password)-1, 0);
     password[n] = '\0';
 
-    if(authenticate_customer(username, password, &c)){
-    	if(is_logged_in(c.id)){
-		send(sock,"User already logged in elsewhere.\n",34,0);
-	}
-	else{
-		add_session(c.id);
-		while ((n = recv(sock, buffer, BUFFER_SIZE-1, 0)) > 0) {
-           		 buffer[n] = '\0';
+    if (authenticate_customer(username, password, &c)) {
+        if (is_logged_in(c.id)) {
+            send(sock,"User already logged in elsewhere.\n",34,0);
+        } else {
+            add_session(c.id);
+            while ((n = recv(sock, buffer, BUFFER_SIZE-1, 0)) > 0) {
+                buffer[n] = '\0';
 
-           		 if (strcmp(buffer, "BALANCE") == 0) {
-				 handle_view_balance(sock, &c);
-			}
-			 else if (strncmp(buffer, "DEPOSIT",7) == 0) {
- 				 handle_deposit(sock, &c,buffer);
-			 }
-			 else if (strncmp(buffer, "WITHDRAW",8) == 0) {
-				 handle_withdraw(sock, &c,buffer);
-			 }
-			 else if (strncmp(buffer, "TRANSFER",8) == 0) {
- 				 handle_transfer(sock, &c,buffer);
-			 }
-			 else if (strncmp(buffer, "LOAN",4) == 0) {
- 				 handle_apply_loan(sock, &c,buffer);
-			 }
-			 else if (strncmp(buffer, "CHANGE_PASSWORD",15) == 0) {
-				 handle_change_password(sock, &c,buffer);
-			 }
-			 else if (strcmp(buffer, "FEEDBACK") == 0) {
-				 handle_feedback(sock, &c);
-			 }
-			 else if (strcmp(buffer, "TRANSACTIONS") == 0) {
-				 handle_view_transactions(sock, &c);
-			 }
-			else if (strcmp(buffer, "LOGOUT") == 0) {
-			    	send(sock, "Logging out...\n", 15, 0);
-    				break;
-			}
-			 else if (strcmp(buffer, "EXIT") == 0) {
-				 send(sock, "Goodbye!\n", 9, 0);
-				 break;
-			 }
-			else {
-			    	send(sock, "Invalid choice\n", 15, 0);
-			}
+                if (strcmp(buffer, "BALANCE") == 0) {
+                    handle_view_balance(sock, &c);
+                }
+                else if (strncmp(buffer, "DEPOSIT", 7) == 0) {
+                    handle_deposit(sock, &c, buffer);
+                }
+                else if (strncmp(buffer, "WITHDRAW", 8) == 0) {
+                    handle_withdraw(sock, &c, buffer);
+                }
+                else if (strncmp(buffer, "TRANSFER", 8) == 0) {
+                    handle_transfer(sock, &c, buffer);
+                }
+                else if (strncmp(buffer, "LOAN", 4) == 0) {
+                    handle_apply_loan(sock, &c, buffer);
+                }
+                else if (strncmp(buffer, "CHANGE_PASSWORD", 15) == 0) {
+                    handle_change_password(sock, &c, buffer);
+                }
+                else if (strcmp(buffer, "FEEDBACK") == 0) {
+                    handle_feedback(sock, &c);
+                }
+                else if (strcmp(buffer, "TRANSACTIONS") == 0) {
+                    handle_view_transactions(sock, &c);
+                }
+                else if (strcmp(buffer, "LOGOUT") == 0) {
+                    send(sock, "You have been logged out.\n", 26, 0);
+                    remove_session(c.id);
+                    break;
+                }
+                else if (strcmp(buffer, "EXIT") == 0) {
+                    send(sock, "Goodbye!\n", 9, 0);
+                    remove_session(c.id);
+                    printf("[SERVER] Customer %d requested EXIT. Shutting down server...\n", c.id);
 
-        	}
-		remove_session(c.id);
-	}
-    } 
-    else{
-	    send(sock,"Login failed.\n",14,0);
+                    // 🔹 Notify parent process to exit
+                    kill(getppid(), SIGTERM);
+
+                    close(sock);
+                    exit(0);
+                }
+                else {
+                    send(sock, "Invalid choice\n", 15, 0);
+                }
+            }
+            remove_session(c.id);
+        }
+    } else {
+        send(sock,"Login failed.\n",14,0);
     }
 
     close(sock);
@@ -108,7 +100,8 @@ void handle_client(int sock) {
 }
 
 int main() {
-    int server_fd, client_sock;
+    signal(SIGTERM, handle_sigterm);  // 🔹 handle shutdown request
+
     struct sockaddr_in address;
     socklen_t addrlen = sizeof(address);
 
@@ -129,9 +122,15 @@ int main() {
 
     printf("Server running on port %d...\n", PORT);
 
-    while (1) {
-        client_sock = accept(server_fd, (struct sockaddr*)&address, &addrlen);
-        if (client_sock < 0) { perror("accept failed"); continue; }
+    while (server_running) {
+        int client_sock = accept(server_fd, (struct sockaddr*)&address, &addrlen);
+
+        if (!server_running) break;   // exit after signal
+
+        if (client_sock < 0) {
+            if (server_running) perror("accept failed");
+            continue;
+        }
 
         if (fork() == 0) {
             close(server_fd);
@@ -140,6 +139,8 @@ int main() {
             close(client_sock);
         }
     }
+
+    close(server_fd);
+    printf("[SERVER] Shutdown complete.\n");
     return 0;
 }
-

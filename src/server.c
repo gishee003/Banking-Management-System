@@ -71,11 +71,11 @@ void handle_client(int sock) {
 			 else if (strncmp(buffer, "TRANSFER",8) == 0) {
  				 handle_transfer(sock, &c,buffer);
 			 }
-			 else if (strcmp(buffer, "LOAN") == 0) {
- 				 handle_apply_loan(sock, &c);
+			 else if (strncmp(buffer, "LOAN",4) == 0) {
+ 				 handle_apply_loan(sock, &c,buffer);
 			 }
-			 else if (strcmp(buffer, "CHANGE_PASS") == 0) {
-				 handle_change_password(sock, &c);
+			 else if (strncmp(buffer, "CHANGE_PASSWORD",15) == 0) {
+				 handle_change_password(sock, &c,buffer);
 			 }
 			 else if (strcmp(buffer, "FEEDBACK") == 0) {
 				 handle_feedback(sock, &c);

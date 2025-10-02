@@ -196,3 +196,85 @@ int transfer_funds(int from_id, int to_id, double amount, double *new_balance) {
     return 0; // failure
 }
 
+//---------------- LOAN FUNCTIONS --------------------
+
+int generateLoanId() {
+    int max_id = 0;
+    Loan loan;
+
+    int fd = open("loans.dat", O_RDONLY);
+    if (fd < 0) return 1; // first loan
+
+    while (read(fd, &loan, sizeof(Loan)) == sizeof(Loan)) {
+        if (loan.loan_id > max_id)
+            max_id = loan.loan_id;
+    }
+    close(fd);
+
+    return max_id + 1;
+}
+
+void addLoanRequest(int customer_id, double amount, int tenure, double interest_rate) {
+    Loan loan;
+    loan.loan_id = generateLoanId();
+    loan.customer_id = customer_id;
+    loan.amount = amount;
+    loan.tenure_months = tenure;
+    loan.interest_rate = interest_rate;
+    strcpy(loan.status, "Pending");
+
+    int fd = open("loans.dat", O_WRONLY | O_APPEND | O_CREAT, 0666);
+    if (fd < 0) {
+        perror("Error opening loans.dat");
+        return;
+    }
+
+    if (write(fd, &loan, sizeof(Loan)) != sizeof(Loan)) {
+        perror("Error writing loan record");
+    }
+
+    close(fd);
+}
+
+int change_password(int cust_id, const char *new_password) {
+    int fd = open(CUSTOMER_DB, O_RDWR);
+    if (fd < 0) return 0;
+
+    struct flock lock;
+    memset(&lock, 0, sizeof(lock));
+    lock.l_type = F_WRLCK;
+    lock.l_whence = SEEK_SET;
+    lock.l_start = 0;
+    lock.l_len = 0;
+
+    if (fcntl(fd, F_SETLKW, &lock) == -1) {
+        close(fd);
+        return 0;
+    }
+
+    struct Customer c;
+    off_t pos = 0;
+    int found = 0;
+
+    while (read(fd, &c, sizeof(c)) == sizeof(c)) {
+        if (c.id == cust_id) {
+            strncpy(c.password, new_password, sizeof(c.password) - 1);
+            c.password[sizeof(c.password) - 1] = '\0';
+
+            if (lseek(fd, pos, SEEK_SET) == -1) break;
+            if (write(fd, &c, sizeof(c)) != sizeof(c)) break;
+
+	    fsync(fd);
+            found = 1;
+            break;
+        }
+        pos += sizeof(c);
+    }
+
+    lock.l_type = F_UNLCK;
+    fcntl(fd, F_SETLK, &lock);
+    close(fd);
+
+    return found;
+}
+

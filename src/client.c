@@ -79,13 +79,7 @@ int main() {
 			char input[32];
         		double amt = 0.0;
 		       	printf("Enter amount to deposit: ");
-		    	/*if (scanf("%lf", &amt) != 1) {
-				// clear stdin
-			        int ch;
-				while ((ch = getchar()) != '\n' && ch != EOF) ;
-				printf("Invalid input.\n");
-				break;
-		    	}*/
+		    
 			if(!fgets(input, sizeof(input), stdin) || sscanf(input, "%lf", &amt) != 1) {
 				printf("Invalid input.\n");
 				break;
@@ -145,12 +139,48 @@ int main() {
 		       }
 		       break;
 		       }
-		case 5:
-                         send(sock, "LOAN", 7, 0);
-                         break; 
-                case 6:
-                        send(sock, "CHANGE PASSWORD", 15, 0);
+		case 5:{
+                        char input[64];
+                        double amt, interest;
+                        int tenure;
+
+                        printf("Enter loan amount, tenure (months), and interest rate: ");
+                        if (!fgets(input, sizeof(input), stdin) ||
+                                        sscanf(input, "%lf %d %lf", &amt, &tenure, &interest) != 3) {
+                                printf("Invalid input. Usage: <amount> <tenure_months> <interest_rate>\n");
+                                break;
+                        }
+
+                        char outbuf[BUFFER_SIZE];
+                        snprintf(outbuf, sizeof(outbuf), "LOAN %.2f %d %.2f", amt, tenure, interest);
+                        send(sock, outbuf, strlen(outbuf), 0);
+
+                        int n = recv(sock, outbuf, sizeof(outbuf) - 1, 0);
+                        if (n > 0) {
+                                outbuf[n] = '\0';
+                                printf("Server: %s\n", outbuf);
+                        }
                         break;
+                        }
+                case 6:{
+                        char new_pass[50];
+                        printf("Enter new password: ");
+                        if (!fgets(new_pass, sizeof(new_pass), stdin)) {
+                                printf("Input error.\n");
+                                break;
+                        }
+                        new_pass[strcspn(new_pass, "\n")] = '\0';
+
+                        char outbuf[BUFFER_SIZE];
+                        snprintf(outbuf, sizeof(outbuf), "CHANGE_PASSWORD %s", new_pass);
+                        send(sock, outbuf, strlen(outbuf), 0);
+			int n = recv(sock, outbuf, sizeof(outbuf) - 1, 0);
+                        if (n > 0) {
+                                outbuf[n] = '\0';
+                                printf("Server: %s\n", outbuf);
+                        }
+                        break;
+                       }
 		case 7:
                          send(sock, "FEEDBACK", 8, 0);
                          break; 

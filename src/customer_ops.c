@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -115,12 +116,40 @@ void handle_transfer(int sock, struct Customer *c,const char *cmd) {
     send(sock, resp, strlen(resp), 0);
 }
 
-void handle_apply_loan(int sock, struct Customer *c) {
-    send(sock, "Loan application selected (not implemented yet)\n", 48, 0);
+void handle_apply_loan(int sock, struct Customer *c, const char *cmd) {
+    double amount, interest;
+    int tenure;
+
+    if (sscanf(cmd, "LOAN %lf %d %lf", &amount, &tenure, &interest) != 3) {
+        send(sock, "Usage: LOAN <amount> <tenure_months> <interest_rate>\n", 52, 0);
+        return;
+    }
+
+    addLoanRequest(c->id, amount, tenure, interest);
+
+    char resp[BUFFER_SIZE];
+    snprintf(resp, sizeof(resp), 
+             "Loan request submitted. Amount: %.2f, Tenure: %d months, Interest: %.2f%%\n",
+             amount, tenure, interest);
+    send(sock, resp, strlen(resp), 0);
 }
 
-void handle_change_password(int sock, struct Customer *c) {
-    send(sock, "Change password selected (not implemented yet)\n", 48, 0);
+
+void handle_change_password(int sock, struct Customer *c, const char *cmd){
+    char new_pass[50];
+    if (sscanf(cmd, "CHANGE_PASSWORD %49s", new_pass) != 1) {
+        send(sock, "Usage: CHANGE_PASSWORD <new_password>\n", 38, 0);
+        return;
+    }
+
+    if (!change_password(c->id, new_pass)) {
+        send(sock, "Password change failed.\n", 24, 0);
+        return;
+    }
+
+    strncpy(c->password, new_pass, sizeof(c->password) - 1);
+
+    send(sock, "Password changed successfully.\n", 31, 0);
 }
 
 void handle_feedback(int sock, struct Customer *c) {
